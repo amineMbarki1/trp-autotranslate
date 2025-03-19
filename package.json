@@ -1,0 +1,7 @@
+{
+  "name": "your-project",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "browser-sync start --proxy 'http://localhost/wp' --files './**/*.php, ./**/*.css, ./**/*.js'"
+  }
+}
