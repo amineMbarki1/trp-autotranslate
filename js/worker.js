@@ -4,7 +4,7 @@ class Pipeline {
   static instance = null;
   static async getInstance(pgCallback = null) {
     if (this.instance === null) {
-      this.instance = await pipeline(
+      this.instance = pipeline(
         "translation",
         "Xenova/nllb-200-distilled-600M",
         {
@@ -20,7 +20,6 @@ class Pipeline {
 }
 
 onmessage = async function (event) {
-  // The worker will only start processing when the message is posted
   let translator = await Pipeline.getInstance((x) => {
     // Send progress updates back to the main thread
     self.postMessage(x);
@@ -28,15 +27,31 @@ onmessage = async function (event) {
 
   try {
     // Perform the translation when the message is received
-    let output = await translator(event.data.text, {
-      tgt_lang: event.data.tgt_lang,
-      src_lang: event.data.src_lang,
+    self.postMessage({
+      status: "update",
+      id: event.data.id,
     });
+
+    const sentences = event.data.text.match(/[^.!?]+[.!?]+/g) || [
+      event.data.text,
+    ];
+
+    const translations = await Promise.all(
+      sentences.map((sentence) =>
+        translator(sentence, {
+          tgt_lang: event.data.tgt_lang,
+          src_lang: event.data.src_lang,
+        })
+      )
+    );
+
+    const output = translations.map((t) => t[0].translation_text).join(" ");
 
     // Send the completed translation back to the main thread
     self.postMessage({
       status: "complete",
       output: output,
+      id: event.data.id,
     });
   } catch (error) {
     // Handle errors if something goes wrong
